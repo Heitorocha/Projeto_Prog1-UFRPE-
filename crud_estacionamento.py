@@ -19,10 +19,8 @@ def aplicar_hover(botao):
 
 # ===============   CRUD EM ARQUIVO TXT   ==================
 class EstacionamentoCRUD:
-    def __init__(self, arquivo="veiculos.txt", preco_inicial=10, preco_por_hora=5):
+    def _init_(self, arquivo="veiculos.txt"):
         self.arquivo = arquivo
-        self.preco_inicial = preco_inicial
-        self.preco_por_hora = preco_por_hora
 
         # cria o arquivo se não existir
         if not os.path.exists(self.arquivo):
@@ -30,22 +28,34 @@ class EstacionamentoCRUD:
                 pass
 
     # CREATE
-    def adicionar(self, placa):
+    def adicionar(self, placa, valor_fixo, valor_hora):
         placa = placa.upper()
         veiculos = self.ler_todos()
 
-        if placa in veiculos:
-            return False, "Essa placa já existe."
+        # Verifica se placa já existe
+        for v in veiculos:
+            if v["placa"] == placa:
+                return False, "Essa placa já existe."
 
+        # Salva no formato: placa;fixo;hora
         with open(self.arquivo, "a") as f:
-            f.write(placa + "\n")
+            f.write(f"{placa};{valor_fixo};{valor_hora}\n")
 
         return True, "Veículo adicionado com sucesso."
     
     # READ
     def ler_todos(self):
+        veiculos = []
         with open(self.arquivo, "r") as f:
-            return [linha.strip() for linha in f.readlines() if linha.strip()]
+            for linha in f:
+                if linha.strip():
+                    placa, fixo, hora = linha.strip().split(";")
+                    veiculos.append({
+                        "placa": placa,
+                        "fixo": float(fixo),
+                        "hora": float(hora)
+                    })
+        return veiculos
     
     # UPDATE
     def atualizar(self, placa_antiga, nova_placa):
@@ -54,16 +64,25 @@ class EstacionamentoCRUD:
 
         veiculos = self.ler_todos()
 
-        if placa_antiga not in veiculos:
+        # Verifica se placa atual existe
+        registro = None
+        for v in veiculos:
+            if v["placa"] == placa_antiga:
+                registro = v
+                break
+
+        if not registro:
             return False, "Placa atual não encontrada."
 
-        if nova_placa in veiculos:
-            return False, "A nova placa já existe."
+        # Verifica se nova placa já existe
+        for v in veiculos:
+            if v["placa"] == nova_placa:
+                return False, "A nova placa já existe."
 
-        index = veiculos.index(placa_antiga)
-        veiculos[index] = nova_placa
+        # Atualiza placa mantendo valores individuais
+        registro["placa"] = nova_placa
+
         self.salvar_lista(veiculos)
-
         return True, "Placa atualizada com sucesso."
 
     # DELETE
@@ -71,24 +90,32 @@ class EstacionamentoCRUD:
         placa = placa.upper()
         veiculos = self.ler_todos()
 
-        if placa not in veiculos:
+        registro = None
+        for v in veiculos:
+            if v["placa"] == placa:
+                registro = v
+                break
+
+        if not registro:
             return False, "Veículo não encontrado."
 
-        veiculos.remove(placa)
+        veiculos = [v for v in veiculos if v["placa"] != placa]
         self.salvar_lista(veiculos)
 
-        valor = self.preco_inicial + self.preco_por_hora * horas
-        return True, valor
+        # Calcula total com valores individuais gravados
+        valor_total = registro["fixo"] + registro["hora"] * horas
+
+        return True, valor_total
     
-    # WRITE (reescreve completamente o arquivo veiculos.txt)
+    # WRITE
     def salvar_lista(self, lista):
         with open(self.arquivo, "w") as f:
-            for item in lista:
-                f.write(item + "\n")
+            for v in lista:
+                f.write(f"{v['placa']};{v['fixo']};{v['hora']}\n")
 
 # ===============   INTERFACE GRÁFICA   ====================
 class EstacionamentoGUI:
-    def __init__(self, root):
+    def _init_(self, root):
         self.root = root
         self.root.title("Estacionamento - Interface Gráfica")
         self.root.geometry("420x450")
@@ -134,10 +161,7 @@ class EstacionamentoGUI:
         if valor_hora is None:
             return
 
-        self.crud.preco_inicial = valor_fixo
-        self.crud.preco_por_hora = valor_hora
-
-        sucesso, msg = self.crud.adicionar(placa)
+        sucesso, msg = self.crud.adicionar(placa, valor_fixo, valor_hora)
         if sucesso:
             messagebox.showinfo("Sucesso", msg)
         else:
@@ -149,7 +173,9 @@ class EstacionamentoGUI:
             return
 
         veiculos = self.crud.ler_todos()
-        if placa.upper() not in veiculos:
+        placas_existentes = [v["placa"] for v in veiculos]
+
+        if placa.upper() not in placas_existentes:
             messagebox.showerror("Erro", "Veículo não encontrado.")
             return
 
@@ -168,8 +194,13 @@ class EstacionamentoGUI:
         veiculos = self.crud.ler_todos()
         if not veiculos:
             messagebox.showinfo("Lista", "Nenhum veículo cadastrado.")
-        else:
-            messagebox.showinfo("Veículos", "\n".join(veiculos))
+            return
+        
+        texto = ""
+        for v in veiculos:
+            texto += f"{v['placa']} - Fixo: R${v['fixo']:.2f} / Hora: R${v['hora']:.2f}\n"
+        
+        messagebox.showinfo("Veículos", texto)
 
     def atualizar(self):
         atual = simpledialog.askstring("Atualizar", "Placa atual:")
@@ -188,7 +219,7 @@ class EstacionamentoGUI:
 
 # ======================== LOGIN ============================
 class LoginScreen:
-    def __init__(self, root):
+    def _init_(self, root):
         self.root = root
         self.root.title("Login - Estacionamento")
         self.root.geometry("350x320")
@@ -229,7 +260,7 @@ class LoginScreen:
             messagebox.showerror("Erro", "Usuário ou senha incorretos!")
 
 # ======================== MAIN ============================
-if __name__ == "__main__":
+if _name_ == "_main_":
     login_root = tk.Tk()
     LoginScreen(login_root)
     login_root.mainloop()
